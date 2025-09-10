@@ -31,50 +31,64 @@ namespace TonysMcpTools
         [McpServerTool, Description("Obtiene la lista de todas las versiones disponibles para un paquete NuGet específico.")]
         public async Task<NuGetVersions> GetPackageVersionsAsync(string packageName)
         {
-            string url = $"https://api.nuget.org/v3-flatcontainer/{packageName.ToLower()}/index.json";
+            try { 
+                string url = $"https://api.nuget.org/v3-flatcontainer/{packageName.ToLower()}/index.json";
 
-            var response = await _httpClient.GetAsync(url);
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new Exception($"Paquete '{packageName}' no encontrado");
+                var response = await _httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new Exception($"Paquete '{packageName}' no encontrado");
+                }
+
+                string json = await response.Content.ReadAsStringAsync();
+
+                var  nugetVersions = JsonSerializer.Deserialize<NuGetVersions>(json, GetOptions());
+
+                if(nugetVersions == null || nugetVersions.Versions.Length == 0)
+                {
+                    throw new Exception($"No se encontraron versiones para el paquete {packageName}.");
+                }   
+
+                return nugetVersions;
             }
-
-            string json = await response.Content.ReadAsStringAsync();
-
-            var  nugetVersions = JsonSerializer.Deserialize<NuGetVersions>(json, GetOptions());
-
-            if(nugetVersions == null || nugetVersions.Versions.Length == 0)
+            catch (HttpRequestException ex)
             {
-                throw new Exception($"No se encontraron versiones para el paquete {packageName}.");
-            }   
-
-            return nugetVersions;
+                throw new Exception($"Error al optener la lista de NuGet para {packageName}: {ex.Message}");
+            }
         }
 
         // Obtener información detallada de una versión específica
         [McpServerTool, Description("Obtiene los detalles (contenido del .nuspec) de una versión específica de un paquete NuGet.")]
         public async Task<NuGetPackageDetails> GetPackageDetailsAsync(string packageName, string version)
         {
-            string url = $"https://api.nuget.org/v3-flatcontainer/{packageName.ToLower()}/{version}/{packageName.ToLower()}.nuspec";
+            try { 
+                string url = $"https://api.nuget.org/v3-flatcontainer/{packageName.ToLower()}/{version}/{packageName.ToLower()}.nuspec";
 
-            var response = await _httpClient.GetAsync(url);
-            response.EnsureSuccessStatusCode();
+                var response = await _httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
 
-            string nuspecContent = await response.Content.ReadAsStringAsync();
+                string nuspecContent = await response.Content.ReadAsStringAsync();
 
-            // Aquí podrías parsear el XML del .nuspec para obtener más detalles
-            return new NuGetPackageDetails
+                // Aquí podrías parsear el XML del .nuspec para obtener más detalles
+                return new NuGetPackageDetails
+                {
+                    PackageName = packageName,
+                    Version = version,
+                    NuspecContent = nuspecContent
+                };
+
+            }
+            catch (HttpRequestException ex)
             {
-                PackageName = packageName,
-                Version = version,
-                NuspecContent = nuspecContent
-            };
+                throw new Exception($"Error al obtener los detalle del NuGet para {packageName}: {ex.Message}");
+            }
         }
 
         // Buscar paquetes (usa la API de búsqueda)
         [McpServerTool, Description("Busca paquetes NuGet que coincidan con un término de búsqueda y devuelve los resultados.")]
         public async Task<NuGetSearchResult> SearchPackagesAsync(string searchTerm)
         {
+            try { 
             string url = $"https://api-v2v3search-0.nuget.org/query?q={searchTerm}&take=20";
 
             var response = await _httpClient.GetAsync(url);
@@ -85,6 +99,11 @@ namespace TonysMcpTools
             var nuGetSearchResult = JsonSerializer.Deserialize<NuGetSearchResult>(json,  GetOptions());
 
             return nuGetSearchResult ?? throw new Exception("Error al deserializar la respuesta de búsqueda.");
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new Exception($"Error al buscar el NuGet para {searchTerm}: {ex.Message}");
+            }
         }
 
         public void Dispose()
