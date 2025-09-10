@@ -138,6 +138,16 @@ namespace TonysMcpTools
         public NuGetSearchData[] Data { get; set; } = [];
     }
 
+    public class NuGetVersionInfo
+    {
+        [JsonPropertyName("@id")]
+        public string Id { get; set; } = string.Empty;
+        [JsonPropertyName("version")]
+        public string Version { get; set; } = string.Empty;
+        [JsonPropertyName("downloads")]
+        public long Downloads { get; set; }
+    }
+
     public class NuGetSearchData
     {
         [JsonPropertyName("id")]
@@ -147,7 +157,7 @@ namespace TonysMcpTools
         [JsonPropertyName("description")]
         public string Description { get; set; } = string.Empty;
         [JsonPropertyName("versions")]
-        public string[] Versions { get; set; } = [];
+        public NuGetVersionInfo[] Versions { get; set; } = [];
         [JsonPropertyName("authors")]
         public string[] Authors { get; set; } = [];
         [JsonPropertyName("totalDownloads")]
