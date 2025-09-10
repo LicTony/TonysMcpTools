@@ -1,4 +1,5 @@
 using ModelContextProtocol.Server;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -51,6 +52,7 @@ namespace TonysMcpTools
             }
             catch (HttpRequestException ex)
             {
+                Log.Error(ex, "Error al consultar NuGet para {PackageName}", packageName);
                 throw new Exception($"Error al consultar NuGet para {packageName}: {ex.Message}");
             }
         }

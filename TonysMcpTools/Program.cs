@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
+using Serilog;
 
 namespace TonysMcpTools
 {
@@ -13,17 +14,35 @@ namespace TonysMcpTools
         {
             var builder = Host.CreateApplicationBuilder(args);
 
-            builder.Logging.AddConsole(consoleLogOptions =>
-            {
-                consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Trace;
-            });
+            // Configure Serilog
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .Enrich.FromLogContext()
+                .WriteTo.File("TonysMcpTools-.log", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
+            builder.Logging.ClearProviders();
+            builder.Logging.AddSerilog(Log.Logger);
+
 
             builder.Services
                 .AddMcpServer()
                 .WithStdioServerTransport()
                 .WithToolsFromAssembly();
 
-            await builder.Build().RunAsync();
+            try
+            {
+                Log.Information("Starting host...");
+                await builder.Build().RunAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Host terminated unexpectedly");
+            }
+            finally
+            {
+                Log.CloseAndFlush();
+            }
         }
     }
 }

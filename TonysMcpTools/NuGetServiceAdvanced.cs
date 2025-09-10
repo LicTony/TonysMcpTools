@@ -1,4 +1,5 @@
 ﻿using ModelContextProtocol.Server;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -53,6 +54,7 @@ namespace TonysMcpTools
             }
             catch (HttpRequestException ex)
             {
+                Log.Error(ex, "Error al optener la lista de NuGet para {PackageName}", packageName);
                 throw new Exception($"Error al optener la lista de NuGet para {packageName}: {ex.Message}");
             }
         }
@@ -80,6 +82,7 @@ namespace TonysMcpTools
             }
             catch (HttpRequestException ex)
             {
+                Log.Error(ex, "Error al obtener los detalle del NuGet para {PackageName} version {Version}", packageName, version);
                 throw new Exception($"Error al obtener los detalle del NuGet para {packageName}: {ex.Message}");
             }
         }
@@ -102,6 +105,7 @@ namespace TonysMcpTools
             }
             catch (HttpRequestException ex)
             {
+                Log.Error(ex, "Error al buscar el NuGet para {SearchTerm}", searchTerm);
                 throw new Exception($"Error al buscar el NuGet para {searchTerm}: {ex.Message}");
             }
         }
