@@ -40,6 +40,7 @@ namespace TonysMcpTools
                 .WithStdioServerTransport()
                 .WithToolsFromAssembly();
 
+
             try
             {
                 Log.Information("Starting host...");

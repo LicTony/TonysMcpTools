@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "TonysMcpTools": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "C:\\_credenciales\\notalk\\notalk-firebase-adminsdk-fbsvc-96f70fc401.json"
+      }
+    }
+  }
+}
