@@ -44,7 +44,7 @@ namespace TonysMcpTools
 
                 if (packageInfo == null || packageInfo.Versions.Length == 0)
                 {
-                    throw new Exception($"No se encontraron versiones para el paquete {packageName}.");
+                    throw new InvalidOperationException($"No se encontraron versiones para el paquete {packageName}.");
                 }
 
 
@@ -53,7 +53,7 @@ namespace TonysMcpTools
             catch (HttpRequestException ex)
             {
                 Log.Error(ex, "Error al consultar NuGet para {PackageName}", packageName);
-                throw new Exception($"Error al consultar NuGet para {packageName}: {ex.Message}");
+                throw new NuGetPackageException(packageName, $"Error al consultar NuGet para {packageName}: {ex.Message}");
             }
         }
 
@@ -65,4 +65,28 @@ namespace TonysMcpTools
         [JsonPropertyName("versions")]
         public string[] Versions { get; set; } = [];
     }
+
+
+    public class NuGetPackageException : Exception
+    {
+        public string PackageName { get; }
+
+        public NuGetPackageException(string packageName, string message)
+            : base(message)
+        {
+            PackageName = packageName;
+        }
+
+        public NuGetPackageException(string packageName, string message, Exception innerException)
+            : base(message, innerException)
+        {
+            PackageName = packageName;
+        }
+    }
+
+
+    public class JiraOperationException(string message, Exception? innerException = null) : Exception(message, innerException)
+    {
+    }
+
 }
