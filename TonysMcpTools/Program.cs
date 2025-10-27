@@ -10,7 +10,7 @@ using System.Reflection; // Para Assembly
 
 namespace TonysMcpTools
 {
-    class Program
+    static class Program
     {
         static async Task Main(string[] args)
         {
@@ -51,7 +51,7 @@ namespace TonysMcpTools
             }
             finally
             {
-                Log.CloseAndFlush();
+                await Log.CloseAndFlushAsync();
             }
         }
     }
