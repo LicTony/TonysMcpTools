@@ -1,12 +1,14 @@
-﻿using System;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
-using System.ComponentModel;
 using Serilog;
+using System;
+using System.ComponentModel;
 using System.IO;
-using System.Reflection; // Para Assembly
+using System.Reflection;
+using System.Text;
+using TonysMcpTools.Utiles; // Para Assembly
 
 namespace TonysMcpTools
 {
@@ -40,6 +42,20 @@ namespace TonysMcpTools
                 .WithStdioServerTransport()
                 .WithToolsFromAssembly();
 
+            string MCP_Entropia = Util.GetStringNotNull("MCP_Entropia", "");
+            byte[] MCP_EntropiaByte = Encoding.UTF8.GetBytes(MCP_Entropia);
+            string ENCRYPT_MCP_UsuarioJira = Util.GetStringNotNull("MCP_UsuarioJira", "");
+            string ENCRYPT_MCP_TokenJira = Util.GetStringNotNull("MCP_TokenJira", "");
+            string ENCRYPT_MCP_JiraBaseUrl = Util.GetStringNotNull("MCP_JiraBaseUrl", "");
+
+            GlobalConfig.UsuarioJira = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_UsuarioJira, MCP_EntropiaByte);
+            GlobalConfig.TokenDeAcceso = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TokenJira, MCP_EntropiaByte);
+            GlobalConfig.JiraBaseUrl = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_JiraBaseUrl, MCP_EntropiaByte);
+
+            Log.Information("MCP Server is starting...");
+            Log.Information("Jira Usuario: {UsuarioJira}", GlobalConfig.UsuarioJira);
+            Log.Information("Jira Token: {TokenDeAcceso}", GlobalConfig.TokenDeAcceso);
+            Log.Information("Jira Base URL: {JiraBaseUrl}", GlobalConfig.JiraBaseUrl);
 
             try
             {
