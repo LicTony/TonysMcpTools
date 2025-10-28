@@ -13,7 +13,7 @@ namespace TonysMcpTools.Tests
         public void GetCurrentDateTime_ShouldReturnCorrectFormat()
         {
             // Act
-            var result = DateTimeTool.GetCurrentDateTime();
+            var result = DateTimeTools.GetCurrentDateTime();
 
             // Assert
             Assert.NotNull(result);
@@ -24,7 +24,7 @@ namespace TonysMcpTools.Tests
         public void GetCurrentDateTime_ShouldBeValidDateTime()
         {
             // Act
-            var result = DateTimeTool.GetCurrentDateTime();
+            var result = DateTimeTools.GetCurrentDateTime();
 
             // Assert - Intentar parsear de vuelta a DateTime
             var success = DateTime.TryParseExact(
@@ -43,7 +43,7 @@ namespace TonysMcpTools.Tests
         public void GetCurrentDate_ShouldReturnCorrectFormat()
         {
             // Act
-            var result = DateTimeTool.GetCurrentDate();
+            var result = DateTimeTools.GetCurrentDate();
 
             // Assert
             Assert.NotNull(result);
@@ -54,7 +54,7 @@ namespace TonysMcpTools.Tests
         public void GetCurrentDate_ShouldBeValidDate()
         {
             // Act
-            var result = DateTimeTool.GetCurrentDate();
+            var result = DateTimeTools.GetCurrentDate();
 
             // Assert - Intentar parsear de vuelta a DateTime
             var success = DateTime.TryParseExact(

@@ -9,16 +9,18 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using TonysMcpTools.Excepctions;
 
 namespace TonysMcpTools
 {
 
     [McpServerToolType]
-    public class NuGetServiceAdvanced
+    public class NuGetToolsAdvanced:IDisposable
     {
         private readonly HttpClient _httpClient;
+        private bool _disposed = false;
 
-        public NuGetServiceAdvanced()
+        public NuGetToolsAdvanced()
         {
             _httpClient = new HttpClient();
         }
@@ -38,7 +40,7 @@ namespace TonysMcpTools
                 var response = await _httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new Exception($"Paquete '{packageName}' no encontrado");
+                    throw new NuGetPackageException(packageName, $"Paquete '{packageName}' no encontrado");
                 }
 
                 string json = await response.Content.ReadAsStringAsync();
@@ -47,7 +49,7 @@ namespace TonysMcpTools
 
                 if(nugetVersions == null || nugetVersions.Versions.Length == 0)
                 {
-                    throw new Exception($"No se encontraron versiones para el paquete {packageName}.");
+                    throw new NuGetPackageException(packageName,$"No se encontraron versiones para el paquete {packageName}.");
                 }   
 
                 return nugetVersions;
@@ -55,7 +57,7 @@ namespace TonysMcpTools
             catch (HttpRequestException ex)
             {
                 Log.Error(ex, "Error al optener la lista de NuGet para {PackageName}", packageName);
-                throw new Exception($"Error al optener la lista de NuGet para {packageName}: {ex.Message}");
+                throw new NuGetPackageException(packageName, $"Error al optener la lista de NuGet para {packageName}: {ex.Message}",ex);
             }
         }
 
@@ -83,7 +85,7 @@ namespace TonysMcpTools
             catch (HttpRequestException ex)
             {
                 Log.Error(ex, "Error al obtener los detalle del NuGet para {PackageName} version {Version}", packageName, version);
-                throw new Exception($"Error al obtener los detalle del NuGet para {packageName}: {ex.Message}");
+                throw new NuGetPackageException(packageName, $"Error al obtener los detalle del NuGet para {packageName}: {ex.Message}",ex);
             }
         }
 
@@ -101,18 +103,42 @@ namespace TonysMcpTools
 
             var nuGetSearchResult = JsonSerializer.Deserialize<NuGetSearchResult>(json,  GetOptions());
 
-            return nuGetSearchResult ?? throw new Exception("Error al deserializar la respuesta de búsqueda.");
+            return nuGetSearchResult ?? throw new NuGetPackageException("","Error al deserializar la respuesta de búsqueda.");
             }
             catch (HttpRequestException ex)
             {
                 Log.Error(ex, "Error al buscar el NuGet para {SearchTerm}", searchTerm);
-                throw new Exception($"Error al buscar el NuGet para {searchTerm}: {ex.Message}");
+                throw new NuGetPackageException("",$"Error al buscar el NuGet para {searchTerm}: {ex.Message}",ex);
+            }
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Liberar recursos administrados (managed)
+                    _httpClient?.Dispose();
+                }
+
+                // Aquí liberarías recursos no administrados (unmanaged) si los tuvieras
+                // Por ejemplo: handles nativos, punteros, etc.
+
+                _disposed = true;
             }
         }
 
         public void Dispose()
         {
-            _httpClient?.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        // Solo si tenés recursos no administrados
+        ~NuGetToolsAdvanced()
+        {
+            Dispose(false);
         }
     }
 
@@ -163,4 +189,8 @@ namespace TonysMcpTools
         [JsonPropertyName("totalDownloads")]
         public long TotalDownloads { get; set; }
     }
+
+
+
+    
 }

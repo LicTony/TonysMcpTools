@@ -35,7 +35,7 @@ namespace TonysMcpTools.Tests
             var mockHandler = new MockHttpMessageHandler(responseMessage);
             var httpClient = new HttpClient(mockHandler);
             
-            var nugetService = new NuGetService(httpClient);
+            var nugetService = new NuGetTools(httpClient);
 
             // Act
             var result = await nugetService.GetNugetInfoAsync(packageName);
@@ -58,7 +58,7 @@ namespace TonysMcpTools.Tests
             var mockHandler = new MockHttpMessageHandler(responseMessage);
             var httpClient = new HttpClient(mockHandler);
 
-            var nugetService = new NuGetService(httpClient);
+            var nugetService = new NuGetTools(httpClient);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<Exception>(() => nugetService.GetNugetInfoAsync(packageName));

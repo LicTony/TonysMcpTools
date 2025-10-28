@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace TonysMcpTools
 {
     [McpServerToolType]
-    public class DateTimeTool
+    public static class DateTimeTools
     {
 
         [McpServerTool, Description("Retorna la fecha y hora actual en formato yyyyMMdd_HHmmss.")]

@@ -14,7 +14,7 @@ using Google.Apis.Auth.OAuth2;
 namespace TonysMcpTools
 {
     [McpServerToolType]
-    public class AudioMessage
+    public class AudioMessageTools
     {
 
         [McpServerTool, Description("Retorna ultimo mensaje de audio")]
