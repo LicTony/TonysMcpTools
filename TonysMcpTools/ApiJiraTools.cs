@@ -70,7 +70,7 @@ namespace TonysMcpTools
 
 
         [McpServerTool, Description("Obtiene todos los work log del IssueKey especificado.")]
-        public static async Task<string?> ObtenerWorkLogsAsync(string IssueKey, int maxResults = 5000)
+        public static async Task<string?> ObtenerWorkLogsAsync(string IssueKey, int maxResults = 1000)
         {
             // Configura la URL de la API de Jira con tu instancia y consulta JQL                
             string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{IssueKey}/worklog?maxResults={maxResults}";
@@ -78,7 +78,7 @@ namespace TonysMcpTools
             // Configura la solicitud HTTP
             using HttpClient client = new();
             // Puedes configurar la autenticación si es necesaria
-            string usuarioMasToken = $"{GlobalConfig.UsuarioJira} : {GlobalConfig.TokenDeAcceso}";
+            string usuarioMasToken = $"{GlobalConfig.UsuarioJira}:{GlobalConfig.TokenDeAcceso}";
             client.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.ASCII.GetBytes(usuarioMasToken)));
 
             // Envía la solicitud GET y obtén la respuesta
