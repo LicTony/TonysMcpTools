@@ -13,6 +13,52 @@ namespace TonysMcpTools
     [McpServerToolType]
     public  static class ApiJiraTools
     {
+
+        //todo hacer la funcion public static async Task<string?> ObtenerDetalleResumidoIssueAsync(string issueKey)
+        //solo retornar los campos clave, resumen, estado, tipo de issue, prioridad, asignado, fecha de creación y fecha de actualización. Esto para tener una función que sea más rápida cuando solo se necesite un resumen del issue sin todos los campos personalizados.
+
+
+        /// <summary>
+        /// Obtiene el detalle completo de un issue de Jira, incluyendo campos personalizados.
+        /// </summary>
+        /// <param name="issueKey">La clave del issue (ej: PROJ-123)</param>
+        /// <returns>JSON con el detalle completo del issue</returns>
+        /// <exception cref="HttpRequestException"></exception>
+        [McpServerTool, Description("Obtiene el detalle completo de un issue de Jira, incluyendo todos los campos y campos personalizados.")]
+        public static async Task<string?> ObtenerDetalleIssueAsync(string issueKey)
+        {
+            // Endpoint para obtener el detalle de un issue
+            string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{issueKey}";
+
+            using HttpClient client = new();
+
+            // Autenticación
+            string usuarioMasToken = $"{GlobalConfig.UsuarioJira}:{GlobalConfig.TokenDeAcceso}";
+            client.DefaultRequestHeaders.Add("Authorization",
+                "Basic " + Convert.ToBase64String(Encoding.ASCII.GetBytes(usuarioMasToken)));
+
+            // Envía la solicitud GET y obtén la respuesta
+            HttpResponseMessage response = await client.GetAsync(apiUrl);
+
+            // Procesa la respuesta
+            if (response.IsSuccessStatusCode)
+            {
+                string responseBody = await response.Content.ReadAsStringAsync() ?? "";
+                return responseBody;
+            }
+            else
+            {
+                string errorBody = await response.Content.ReadAsStringAsync();
+                System.Diagnostics.Debug.WriteLine($"Error Body: {errorBody}");
+                throw new HttpRequestException(
+                        $"Error ObtenerDetalleIssueAsync: {response.StatusCode} - {response.ReasonPhrase}. Detalle: {errorBody}",
+                        null,
+                        response.StatusCode
+                );
+            }
+        }
+
+
         /// <summary>
         /// Obtiene todos los issues del jqlQuery especificado.
         /// </summary>
