@@ -14,8 +14,47 @@ namespace TonysMcpTools
     public  static class ApiJiraTools
     {
 
-        //todo hacer la funcion public static async Task<string?> ObtenerDetalleResumidoIssueAsync(string issueKey)
-        //solo retornar los campos clave, resumen, estado, tipo de issue, prioridad, asignado, fecha de creación y fecha de actualización. Esto para tener una función que sea más rápida cuando solo se necesite un resumen del issue sin todos los campos personalizados.
+        /// <summary>
+        /// Obtiene un resumen del issue de Jira con solo los campos clave:
+        /// clave, resumen, estado, tipo de issue, prioridad, asignado, fecha de creación y fecha de actualización.
+        /// </summary>
+        /// <param name="issueKey">La clave del issue (ej: PROJ-123)</param>
+        /// <returns>JSON con los campos resumidos del issue</returns>
+        /// <exception cref="HttpRequestException"></exception>
+        [McpServerTool, Description("Obtiene un resumen del issue de Jira con los campos clave: clave, resumen, estado, tipo, prioridad, asignado, fecha de creación y actualización.")]
+        public static async Task<string?> ObtenerDetalleResumidoIssueAsync(string issueKey)
+        {
+            // Campos solicitados: summary, status, issuetype, priority, assignee, created, updated
+            string fields = "summary,status,issuetype,priority,assignee,created,updated";
+            string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{issueKey}?fields={fields}";
+
+            using HttpClient client = new();
+
+            // Autenticación
+            string usuarioMasToken = $"{GlobalConfig.UsuarioJira}:{GlobalConfig.TokenDeAcceso}";
+            client.DefaultRequestHeaders.Add("Authorization",
+                "Basic " + Convert.ToBase64String(Encoding.ASCII.GetBytes(usuarioMasToken)));
+
+            // Envía la solicitud GET y obtén la respuesta
+            HttpResponseMessage response = await client.GetAsync(apiUrl);
+
+            // Procesa la respuesta
+            if (response.IsSuccessStatusCode)
+            {
+                string responseBody = await response.Content.ReadAsStringAsync() ?? "";
+                return responseBody;
+            }
+            else
+            {
+                string errorBody = await response.Content.ReadAsStringAsync();
+                System.Diagnostics.Debug.WriteLine($"Error Body: {errorBody}");
+                throw new HttpRequestException(
+                        $"Error ObtenerDetalleResumidoIssueAsync: {response.StatusCode} - {response.ReasonPhrase}. Detalle: {errorBody}",
+                        null,
+                        response.StatusCode
+                );
+            }
+        }
 
 
         /// <summary>
