@@ -16,16 +16,16 @@ namespace TonysMcpTools
 
         /// <summary>
         /// Obtiene un resumen del issue de Jira con solo los campos clave:
-        /// clave, resumen, estado, tipo de issue, prioridad, asignado, fecha de creación y fecha de actualización.
+        /// clave, resumen, estado, tipo de issue, prioridad, asignado, fecha de creación, fecha de actualización, descripcion y comentarios.
         /// </summary>
         /// <param name="issueKey">La clave del issue (ej: PROJ-123)</param>
         /// <returns>JSON con los campos resumidos del issue</returns>
         /// <exception cref="HttpRequestException"></exception>
-        [McpServerTool, Description("Obtiene un resumen del issue de Jira con los campos clave: clave, resumen, estado, tipo, prioridad, asignado, fecha de creación y actualización.")]
+        [McpServerTool, Description("Obtiene un resumen del issue de Jira con los campos clave: clave, resumen, estado, tipo, prioridad, asignado, fecha de creación, actualización, descripcion y comentarios.")]
         public static async Task<string?> ObtenerDetalleResumidoIssueAsync(string issueKey)
         {
             // Campos solicitados: summary, status, issuetype, priority, assignee, created, updated
-            string fields = "summary,status,issuetype,priority,assignee,created,updated";
+            string fields = "summary,status,issuetype,priority,assignee,created,updated,description,comment";
             string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{issueKey}?fields={fields}";
 
             using HttpClient client = new();
