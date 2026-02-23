@@ -55,7 +55,7 @@ namespace TonysMcpTools
             GlobalConfig.TokenDeAcceso = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TokenJira, MCP_EntropiaByte);
             GlobalConfig.JiraBaseUrl = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_JiraBaseUrl, MCP_EntropiaByte);
 
-            Log.Information("MCP Server is starting...");
+            Log.Information("MCP Server is starting... Version: {Version}", TonysMcpToolsVersion.GetCurrentTonysMcpToolsVersion()); 
             Log.Information("Jira Usuario: {UsuarioJira} URL: {JiraBaseUrl}", GlobalConfig.UsuarioJira, GlobalConfig.JiraBaseUrl);            
             
             try
