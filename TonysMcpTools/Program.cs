@@ -27,10 +27,13 @@ namespace TonysMcpTools
                 Directory.CreateDirectory(logDirectory);
             }
             var logFilePath = Path.Combine(logDirectory, "TonysMcpTools-.log");
+            //retainedFileCountLimit: 30 acumulo solo los ultimos 30 dias de logs
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .Enrich.FromLogContext()
-                .WriteTo.File(logFilePath, rollingInterval: RollingInterval.Day)
+                .WriteTo.File(logFilePath
+                    ,rollingInterval: RollingInterval.Day
+                    ,retainedFileCountLimit: 30 )
                 .CreateLogger();
 
             builder.Logging.ClearProviders();
