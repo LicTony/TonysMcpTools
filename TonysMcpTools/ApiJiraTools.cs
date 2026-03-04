@@ -3,10 +3,15 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
+using TonysMcpTools.Classes;
 using TonysMcpTools.Utiles;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+
 
 namespace TonysMcpTools
 {
@@ -66,7 +71,9 @@ namespace TonysMcpTools
             "fechas de creación y actualización, descripción y comentarios. " +
             "Usar cuando se necesita una visión general rápida del issue sin sobrecargar el contexto con campos innecesarios. " +
             "Preferir este método sobre ObtenerDetalleIssueAsync cuando no se requieren campos personalizados.")]
-        public static async Task<string> ObtenerDetalleResumidoIssueAsync(string issueKey)
+        public static async Task<string> ObtenerDetalleResumidoIssueAsync(
+            [Description("La clave del issue de Jira. Ejemplo: PROJ-123")] string issueKey)
+
         {
             // Solo pedimos los campos necesarios para mantener la respuesta liviana
             string fields = "summary,status,issuetype,priority,assignee,created,updated,description,comment";
@@ -76,6 +83,147 @@ namespace TonysMcpTools
 
             return await ProcesarRespuestaAsync(response, nameof(ObtenerDetalleResumidoIssueAsync));
         }
+
+
+        // Se declara una sola vez a nivel de clase, se reutiliza siempre
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
+
+        /// <summary>
+        /// Obtiene un resumen ejecutivo de un issue de Jira a partir de su clave.
+        /// Solo trae los campos esenciales para no sobrecargar el contexto.
+        /// </summary>
+        /// <param name="issueKey">La clave del issue (ej: PROJ-123)</param>
+        /// <returns>JSON con los campos resumidos del issue</returns>
+        [McpServerTool, Description(
+            "Obtiene un resumen ejecutivo de un issue de Jira a partir de su clave (ej: PROJ-123). " +
+            "Retorna los campos esenciales: clave, resumen, estado, tipo de issue, prioridad, asignado, " +
+            "fechas de creación y actualización, descripción y comentarios. " +
+            "Usar cuando se necesita una visión general rápida del issue sin sobrecargar el contexto con campos innecesarios. " +
+            "Preferir este método sobre ObtenerDetalleIssueAsync cuando no se requieren campos personalizados.")]
+        public static async Task<string> ObtenerDetalleResumidoIssueV2Async(
+            [Description("La clave del issue de Jira. Ejemplo: PROJ-123")] string issueKey)
+        {
+            string fields = "summary,status,issuetype,priority,assignee,created,updated,description,comment,attachment";
+            string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{issueKey}?fields={fields}";
+
+            try
+            {
+                HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
+                string jsonRaw = await ProcesarRespuestaAsync(response, nameof(ObtenerDetalleResumidoIssueV2Async));
+
+                JiraIssueResume? issue = JsonSerializer.Deserialize<JiraIssueResume>(jsonRaw, _jsonOptions);
+
+
+                if (issue is null)
+                    return JsonSerializer.Serialize(new { error = "No se pudo obtener información del issue." });
+
+                // Construimos el objeto que queremos retornar como JSON
+                var resultado = new
+                {
+                    key = issue.Key ?? "N/A",
+                    summary = issue.Fields?.Summary ?? "Sin resumen",
+                    status = issue.Fields?.Status?.Name ?? "Sin estado",
+                    issueType = issue.Fields?.IssueType?.Name ?? "Sin tipo",
+                    priority = issue.Fields?.Priority?.Name ?? "Sin prioridad",
+                    assignee = issue.Fields?.Assignee?.DisplayName ?? "Sin asignar",
+                    created = FormatearFecha(issue.Fields?.Created),
+                    updated = FormatearFecha(issue.Fields?.Updated),
+                    description = ExtraerTextoADF(issue.Fields?.Description),
+                    attachments = (issue.Fields?.Attachment ?? new List<JiraAttachmentResume>())
+                    .Select(a => new
+                    {
+                        filename = a.Filename ?? "Sin nombre",
+                        mimeType = a.MimeType ?? "N/A",
+                        size = FormatearTamanio(a.Size),
+                        created = FormatearFecha(a.Created),
+                        uploadedBy = a.Author?.DisplayName ?? "Desconocido",
+                        url = a.ContentUrl ?? "N/A"
+                    }),
+                    comments = (issue.Fields?.Comment?.Comments ?? new List<JiraCommentResume>())
+                    .Select(c => new
+                    {
+                        author = c.Author?.DisplayName ?? "Desconocido",
+                        date = FormatearFecha(c.Created),
+                        body = ExtraerTextoADF(c.Body),
+                        //Adjuntos del comentario
+                        attachments = c.Attachment
+                                       .Select(a => new
+                                       {
+                                           filename = a.Filename ?? "Sin nombre",
+                                           mimeType = a.MimeType ?? "N/A",
+                                           size = FormatearTamanio(a.Size),
+                                           created = FormatearFecha(a.Created),
+                                           uploadedBy = a.Author?.DisplayName ?? "Desconocido",
+                                           url = a.ContentUrl ?? "N/A"
+                                       })
+                    })
+                    };
+
+                return JsonSerializer.Serialize(resultado, _jsonOptions);
+
+            }
+            catch (Exception ex)
+            {
+                string mensajeError = $"Error en {nameof(ObtenerDetalleResumidoIssueV2Async)}: {ex.Message}";
+                System.Diagnostics.Debug.WriteLine(mensajeError);
+                return JsonSerializer.Serialize(new { error = mensajeError });
+            }
+        }
+
+
+        /// <summary>
+        /// Extrae el texto plano de un objeto en formato ADF (Atlassian Document Format)
+        /// </summary>
+        private static string ExtraerTextoADF(JiraDescriptionResume? descripcion)
+        {
+            if (descripcion is null) return "Sin contenido";
+
+            // Recorremos el árbol de contenido y extraemos solo los textos
+            var textos = descripcion.Content
+                .SelectMany(bloque => bloque.Content)
+                .Where(inner => inner.Type == "text" && !string.IsNullOrWhiteSpace(inner.Text))
+                .Select(inner => inner.Text!);
+
+            string resultado = string.Join(" ", textos).Trim();
+            return string.IsNullOrEmpty(resultado) ? "Sin contenido" : resultado;
+        }
+
+        /// <summary>
+        /// Convierte una fecha ISO 8601 de Jira a formato legible dd/MM/yyyy HH:mm
+        /// </summary>
+        private static string FormatearFecha(string? fechaIso)
+        {
+            if (string.IsNullOrWhiteSpace(fechaIso))
+                return "N/A";
+
+            return DateTimeOffset.TryParse(
+                        fechaIso,
+                        CultureInfo.InvariantCulture,        
+                        DateTimeStyles.None,
+                        out DateTimeOffset fecha)
+                ? fecha.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)  // ✅ format provider al formatear
+                : "N/A";
+        }
+
+
+        /// <summary>
+        /// Helper formatear tamaño de archivos adjuntos en formato legible (B, KB, MB)
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <returns></returns>
+        private static string FormatearTamanio(long? bytes)
+        {
+            if (bytes is null) return "N/A";
+            if (bytes < 1024) return $"{bytes} B";
+            if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+            return $"{bytes / (1024.0 * 1024):F1} MB";
+        }
+
 
 
         /// <summary>
@@ -91,7 +239,8 @@ namespace TonysMcpTools
             "que no está disponible en el resumen. " +
             "Advertencia: la respuesta puede ser muy extensa. Preferir ObtenerDetalleResumidoIssueAsync " +
             "si solo se necesitan los campos básicos.")]
-        public static async Task<string> ObtenerDetalleIssueAsync(string issueKey)
+        public static async Task<string> ObtenerDetalleIssueAsync(
+            [Description("La clave del issue de Jira. Ejemplo: PROJ-123")] string issueKey)
         {
             string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{issueKey}";
 
@@ -116,7 +265,9 @@ namespace TonysMcpTools
             "Usar cuando se necesita obtener múltiples issues según criterios de filtrado como proyecto, " +
             "estado, asignado, fechas, etiquetas u otros campos. " +
             "Ejemplos de JQL válido: 'assignee = currentUser()', 'created >= -7d AND project = PROJ'.")]
-        public static async Task<string> ObtenerIssueByJqlAsync(string jqlQuery, int maxResults = 5000)
+        public static async Task<string> ObtenerIssueByJqlAsync(
+            [Description("Consulta JQL (ej: 'project = PROJ AND status = Open')")] string jqlQuery,
+            [Description("Cantidad máxima de resultados(por defecto 5000)")] int maxResults = 5000)
         {
             string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/search/jql";
 
@@ -151,7 +302,9 @@ namespace TonysMcpTools
             "Parámetro 'maxResults' limita la cantidad de registros retornados (por defecto 1000). " +
             "Usar cuando se necesita conocer las horas cargadas, quién trabajó en el issue " +
             "o analizar el tiempo invertido en una tarea.")]
-        public static async Task<string> ObtenerWorkLogsAsync(string issueKey, int maxResults = 1000)
+        public static async Task<string> ObtenerWorkLogsAsync(
+            [Description("La clave del issue de Jira. Ejemplo: PROJ-123")] string issueKey,
+            [Description("Cantidad máxima de work logs a retornar (por defecto 1000)")] int maxResults = 1000)
         {
             string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{issueKey}/worklog?maxResults={maxResults}";
 
