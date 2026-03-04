@@ -18,47 +18,6 @@ namespace TonysMcpTools
     [McpServerToolType]
     public static class ApiJiraTools
     {
-        // -------------------------------------------------------------------------
-        // HttpClient estático y compartido: evita el agotamiento de sockets (socket
-        // exhaustion) que ocurre cuando se instancia HttpClient dentro de cada método.
-        // La autenticación se configura una sola vez acá.
-        // -------------------------------------------------------------------------
-        private static readonly HttpClient _httpClient = CrearHttpClient();
-
-        private static HttpClient CrearHttpClient()
-        {
-            var client = new HttpClient();
-
-            // Construimos el header de autenticación Basic una sola vez
-            string usuarioMasToken = $"{GlobalConfig.UsuarioJira}:{GlobalConfig.TokenDeAcceso}";
-            string base64 = Convert.ToBase64String(Encoding.ASCII.GetBytes(usuarioMasToken));
-            client.DefaultRequestHeaders.Add("Authorization", $"Basic {base64}");
-
-            return client;
-        }
-
-        // -------------------------------------------------------------------------
-        // MÉTODO PRIVADO AUXILIAR: centraliza el manejo del response HTTP.
-        // Si la respuesta es exitosa, retorna el body como string.
-        // Si falla, loguea el error y lanza una HttpRequestException con detalle.
-        // De esta forma, los métodos públicos quedan limpios y sin lógica repetida.
-        // -------------------------------------------------------------------------
-        private static async Task<string> ProcesarRespuestaAsync(HttpResponseMessage response, string nombreMetodo)
-        {
-            if (response.IsSuccessStatusCode)
-            {
-                return await response.Content.ReadAsStringAsync() ?? string.Empty;
-            }
-
-            string errorBody = await response.Content.ReadAsStringAsync();
-            string mensaje = $"Error en {nombreMetodo}: {(int)response.StatusCode} {response.ReasonPhrase}. Detalle: {errorBody}";
-
-            System.Diagnostics.Debug.WriteLine(mensaje);
-
-            throw new HttpRequestException(mensaje, null, response.StatusCode);
-        }
-
-
         /// <summary>
         /// Obtiene un resumen ejecutivo de un issue de Jira a partir de su clave.
         /// Solo trae los campos esenciales para no sobrecargar el contexto.
@@ -73,40 +32,6 @@ namespace TonysMcpTools
             "Preferir este método sobre ObtenerDetalleIssueAsync cuando no se requieren campos personalizados.")]
         public static async Task<string> ObtenerDetalleResumidoIssueAsync(
             [Description("La clave del issue de Jira. Ejemplo: PROJ-123")] string issueKey)
-
-        {
-            // Solo pedimos los campos necesarios para mantener la respuesta liviana
-            string fields = "summary,status,issuetype,priority,assignee,created,updated,description,comment";
-            string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{issueKey}?fields={fields}";
-
-            HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
-
-            return await ProcesarRespuestaAsync(response, nameof(ObtenerDetalleResumidoIssueAsync));
-        }
-
-
-        // Se declara una sola vez a nivel de clase, se reutiliza siempre
-        private static readonly JsonSerializerOptions _jsonOptions = new()
-        {
-            PropertyNameCaseInsensitive = true,
-            WriteIndented = true
-        };
-
-
-        /// <summary>
-        /// Obtiene un resumen ejecutivo de un issue de Jira a partir de su clave.
-        /// Solo trae los campos esenciales para no sobrecargar el contexto.
-        /// </summary>
-        /// <param name="issueKey">La clave del issue (ej: PROJ-123)</param>
-        /// <returns>JSON con los campos resumidos del issue</returns>
-        [McpServerTool, Description(
-            "Obtiene un resumen ejecutivo de un issue de Jira a partir de su clave (ej: PROJ-123). " +
-            "Retorna los campos esenciales: clave, resumen, estado, tipo de issue, prioridad, asignado, " +
-            "fechas de creación y actualización, descripción y comentarios. " +
-            "Usar cuando se necesita una visión general rápida del issue sin sobrecargar el contexto con campos innecesarios. " +
-            "Preferir este método sobre ObtenerDetalleIssueAsync cuando no se requieren campos personalizados.")]
-        public static async Task<string> ObtenerDetalleResumidoIssueV2Async(
-            [Description("La clave del issue de Jira. Ejemplo: PROJ-123")] string issueKey)
         {
             string fields = "summary,status,issuetype,priority,assignee,created,updated,description,comment,attachment";
             string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{issueKey}?fields={fields}";
@@ -114,7 +39,7 @@ namespace TonysMcpTools
             try
             {
                 HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
-                string jsonRaw = await ProcesarRespuestaAsync(response, nameof(ObtenerDetalleResumidoIssueV2Async));
+                string jsonRaw = await ProcesarRespuestaAsync(response, nameof(ObtenerDetalleResumidoIssueAsync));
 
                 JiraIssueResume? issue = JsonSerializer.Deserialize<JiraIssueResume>(jsonRaw, _jsonOptions);
 
@@ -134,7 +59,7 @@ namespace TonysMcpTools
                     created = FormatearFecha(issue.Fields?.Created),
                     updated = FormatearFecha(issue.Fields?.Updated),
                     description = ExtraerTextoADF(issue.Fields?.Description),
-                    attachments = (issue.Fields?.Attachment ?? new List<JiraAttachmentResume>())
+                    attachments = (issue.Fields?.Attachment ?? [])
                     .Select(a => new
                     {
                         filename = a.Filename ?? "Sin nombre",
@@ -144,7 +69,7 @@ namespace TonysMcpTools
                         uploadedBy = a.Author?.DisplayName ?? "Desconocido",
                         url = a.ContentUrl ?? "N/A"
                     }),
-                    comments = (issue.Fields?.Comment?.Comments ?? new List<JiraCommentResume>())
+                    comments = (issue.Fields?.Comment?.Comments ?? [])
                     .Select(c => new
                     {
                         author = c.Author?.DisplayName ?? "Desconocido",
@@ -169,61 +94,14 @@ namespace TonysMcpTools
             }
             catch (Exception ex)
             {
-                string mensajeError = $"Error en {nameof(ObtenerDetalleResumidoIssueV2Async)}: {ex.Message}";
+                string mensajeError = $"Error en {nameof(ObtenerDetalleResumidoIssueAsync)}: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine(mensajeError);
                 return JsonSerializer.Serialize(new { error = mensajeError });
             }
         }
 
 
-        /// <summary>
-        /// Extrae el texto plano de un objeto en formato ADF (Atlassian Document Format)
-        /// </summary>
-        private static string ExtraerTextoADF(JiraDescriptionResume? descripcion)
-        {
-            if (descripcion is null) return "Sin contenido";
-
-            // Recorremos el árbol de contenido y extraemos solo los textos
-            var textos = descripcion.Content
-                .SelectMany(bloque => bloque.Content)
-                .Where(inner => inner.Type == "text" && !string.IsNullOrWhiteSpace(inner.Text))
-                .Select(inner => inner.Text!);
-
-            string resultado = string.Join(" ", textos).Trim();
-            return string.IsNullOrEmpty(resultado) ? "Sin contenido" : resultado;
-        }
-
-        /// <summary>
-        /// Convierte una fecha ISO 8601 de Jira a formato legible dd/MM/yyyy HH:mm
-        /// </summary>
-        private static string FormatearFecha(string? fechaIso)
-        {
-            if (string.IsNullOrWhiteSpace(fechaIso))
-                return "N/A";
-
-            return DateTimeOffset.TryParse(
-                        fechaIso,
-                        CultureInfo.InvariantCulture,        
-                        DateTimeStyles.None,
-                        out DateTimeOffset fecha)
-                ? fecha.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)  // ✅ format provider al formatear
-                : "N/A";
-        }
-
-
-        /// <summary>
-        /// Helper formatear tamaño de archivos adjuntos en formato legible (B, KB, MB)
-        /// </summary>
-        /// <param name="bytes"></param>
-        /// <returns></returns>
-        private static string FormatearTamanio(long? bytes)
-        {
-            if (bytes is null) return "N/A";
-            if (bytes < 1024) return $"{bytes} B";
-            if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
-            return $"{bytes / (1024.0 * 1024):F1} MB";
-        }
-
+        
 
 
         /// <summary>
@@ -312,5 +190,110 @@ namespace TonysMcpTools
 
             return await ProcesarRespuestaAsync(response, nameof(ObtenerWorkLogsAsync));
         }
+
+        #region MetodosPrivadosAuxiliares
+
+        // -------------------------------------------------------------------------
+        // HttpClient estático y compartido: evita el agotamiento de sockets (socket
+        // exhaustion) que ocurre cuando se instancia HttpClient dentro de cada método.
+        // La autenticación se configura una sola vez acá.
+        // -------------------------------------------------------------------------
+        private static readonly HttpClient _httpClient = CrearHttpClient();
+
+        private static HttpClient CrearHttpClient()
+        {
+            var client = new HttpClient();
+
+            // Construimos el header de autenticación Basic una sola vez
+            string usuarioMasToken = $"{GlobalConfig.UsuarioJira}:{GlobalConfig.TokenDeAcceso}";
+            string base64 = Convert.ToBase64String(Encoding.ASCII.GetBytes(usuarioMasToken));
+            client.DefaultRequestHeaders.Add("Authorization", $"Basic {base64}");
+
+            return client;
+        }
+
+        // -------------------------------------------------------------------------
+        // MÉTODO PRIVADO AUXILIAR: centraliza el manejo del response HTTP.
+        // Si la respuesta es exitosa, retorna el body como string.
+        // Si falla, loguea el error y lanza una HttpRequestException con detalle.
+        // De esta forma, los métodos públicos quedan limpios y sin lógica repetida.
+        // -------------------------------------------------------------------------
+        private static async Task<string> ProcesarRespuestaAsync(HttpResponseMessage response, string nombreMetodo)
+        {
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadAsStringAsync() ?? string.Empty;
+            }
+
+            string errorBody = await response.Content.ReadAsStringAsync();
+            string mensaje = $"Error en {nombreMetodo}: {(int)response.StatusCode} {response.ReasonPhrase}. Detalle: {errorBody}";
+
+            System.Diagnostics.Debug.WriteLine(mensaje);
+
+            throw new HttpRequestException(mensaje, null, response.StatusCode);
+        }
+
+
+
+        // Se declara una sola vez a nivel de clase, se reutiliza siempre
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
+
+        /// <summary>
+        /// Extrae el texto plano de un objeto en formato ADF (Atlassian Document Format)
+        /// </summary>
+        private static string ExtraerTextoADF(JiraDescriptionResume? descripcion)
+        {
+            if (descripcion is null) return "Sin contenido";
+
+            // Recorremos el árbol de contenido y extraemos solo los textos
+            var textos = descripcion.Content
+                .SelectMany(bloque => bloque.Content)
+                .Where(inner => inner.Type == "text" && !string.IsNullOrWhiteSpace(inner.Text))
+                .Select(inner => inner.Text!);
+
+            string resultado = string.Join(" ", textos).Trim();
+            return string.IsNullOrEmpty(resultado) ? "Sin contenido" : resultado;
+        }
+
+        /// <summary>
+        /// Convierte una fecha ISO 8601 de Jira a formato legible dd/MM/yyyy HH:mm
+        /// </summary>
+        private static string FormatearFecha(string? fechaIso)
+        {
+            if (string.IsNullOrWhiteSpace(fechaIso))
+                return "N/A";
+
+            return DateTimeOffset.TryParse(
+                        fechaIso,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out DateTimeOffset fecha)
+                ? fecha.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)  // ✅ format provider al formatear
+                : "N/A";
+        }
+
+
+        /// <summary>
+        /// Helper formatear tamaño de archivos adjuntos en formato legible (B, KB, MB)
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <returns></returns>
+        private static string FormatearTamanio(long? bytes)
+        {
+            if (bytes is null) return "N/A";
+            if (bytes < 1024) return $"{bytes} B";
+            if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+            return $"{bytes / (1024.0 * 1024):F1} MB";
+        }
+
+
+
+        #endregion
+
     }
 }
