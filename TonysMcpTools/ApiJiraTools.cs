@@ -227,12 +227,17 @@ namespace TonysMcpTools
     "Obtiene el resumen de horas registradas en la semana laboral actual (lunes a viernes) " +
     "para uno o varios usuarios de Tempo. " +
     "Parámetro: 'accountIds' es la lista de accountIds obtenida previamente con BuscarUsuariosJiraAsync. " +
+    "Parámetro opcional: 'hsSemanalesList' lista de horas semanales requeridas, una por usuario, " +
+    "en el mismo orden que 'accountIds' (ej: ['40', '35']). " +
+    "Si un valor no es un entero válido o no se informa, se usa 0 para ese usuario. " +
     "Retorna por cada usuario: total de horas registradas, desglose por día e issues trabajados. " +
     "Usar siempre después de BuscarUsuariosJiraAsync cuando se necesitan las horas de varios usuarios. " +
     "Ejemplo: 'horas de Ascaravilli y AShokida esta semana'.")]
         public static async Task<string> JiraObtenerResumenSemanaUsuariosAsync(
     [Description("Lista de accountIds de Jira obtenidos con BuscarUsuariosJiraAsync.")]
-    List<string> accountIds)
+    List<string> accountIds,
+    [Description("Lista de horas semanales requeridas, una por usuario en el mismo orden que accountIds (ej: [\"40\", \"35\"]). Valores no enteros se tratan como 0.")]
+    List<string>? hsSemanalesList = null)
         {
             // Mismo cálculo de fechas que en ObtenerResumenSemanaActualAsync
             int diasDesdeElLunes = ((int)DateTime.Today.DayOfWeek + 6) % 7;
@@ -245,7 +250,15 @@ namespace TonysMcpTools
             try
             {
                 // Lanzamos todas las consultas en paralelo para no esperar una por una
-                var tareas = accountIds.Select(accountId => ApiTempoTools.ObtenerWorklogsUsuario(accountId, fechaDesde, fechaHasta));
+                // Para cada usuario tomamos su hsSemanales por índice; si no existe o no es int → 0
+                var tareas = accountIds.Select((accountId, i) =>
+                {
+                    string? rawHs = hsSemanalesList != null && i < hsSemanalesList.Count
+                        ? hsSemanalesList[i]
+                        : null;
+                    int hs = int.TryParse(rawHs, out int parsed) ? parsed : 0;
+                    return ApiTempoTools.ObtenerWorklogsUsuario(accountId, fechaDesde, fechaHasta, hs);
+                });
                 var resultadosPorUsuario = await Task.WhenAll(tareas);
 
                 var resultado = new

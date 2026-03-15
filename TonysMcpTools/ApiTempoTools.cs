@@ -50,7 +50,7 @@ namespace TonysMcpTools
                 {
                     periodo = new { desde = fechaDesde, hasta = fechaHasta },
                     totalWorklogs = paged.Results.Count,
-                    totalHoras = FormatearHoras(totalSegundos),
+                    totalHorasFormateadas = FormatearHoras(totalSegundos),
                     worklogs = paged.Results.Select(w => new
                     {
                         id = w.TempoWorklogId,
@@ -349,7 +349,11 @@ namespace TonysMcpTools
 
 
         // Método privado auxiliar: encapsula la consulta y el procesamiento de un usuario
-        internal static async Task<object> ObtenerWorklogsUsuario(string accountId, string fechaDesde, string fechaHasta)
+        internal static async Task<object> ObtenerWorklogsUsuario(
+            string accountId,
+            string fechaDesde,
+            string fechaHasta,
+            int hsSemanales = 0)
         {
             string apiUrl = $"{GlobalConfig.TempoBaseUrl}/worklogs/user/{accountId}" +
                             $"?from={fechaDesde}&to={fechaHasta}&limit=1000";
@@ -360,11 +364,17 @@ namespace TonysMcpTools
             var paged = JsonSerializer.Deserialize<TempoPagedResponse<TempoWorklog>>(jsonRaw, _jsonOptions);
 
             if (paged is null || paged.Results.Count == 0)
-                return new
+            {
+                var sinDatos = new Dictionary<string, object?>
                 {
-                    accountId,
-                    mensaje = "Sin horas registradas en la semana actual."
+                    ["accountId"] = accountId,
+                    ["mensaje"]   = "Sin horas registradas en la semana actual."
                 };
+                if (hsSemanales > 0)
+                    sinDatos["totalSegundosSemanales"] = hsSemanales * 3600;
+
+                return sinDatos;
+            }
 
             var desglosePorDia = paged.Results
                 .GroupBy(w => w.StartDate ?? "N/A")
@@ -385,14 +395,20 @@ namespace TonysMcpTools
                     horasRegistradas = FormatearHoras(g.Sum(w => w.TimeSpentSeconds))
                 });
 
-            return new
+            var resultado = new Dictionary<string, object?>
             {
-                accountId,
-                totalHoras           = FormatearHoras(paged.Results.Sum(w => w.TimeSpentSeconds)),
-                totalHorasFacturables = FormatearHoras(paged.Results.Sum(w => w.BillableSeconds)),
-                desglosePorDia,
-                desglosePorIssue
+                ["accountId"]                      = accountId,
+                ["totalSegundos"]                  = paged.Results.Sum(w => w.TimeSpentSeconds),
+                ["totalHorasFormateadas"]           = FormatearHoras(paged.Results.Sum(w => w.TimeSpentSeconds)),
+                ["totalHorasFacturablesFormateadas"] = FormatearHoras(paged.Results.Sum(w => w.BillableSeconds)),
+                ["desglosePorDia"]                 = desglosePorDia,
+                ["desglosePorIssue"]               = desglosePorIssue
             };
+
+            if (hsSemanales > 0)
+                resultado["totalSegundosSemanales"] = hsSemanales * 3600;
+
+            return resultado;
         }
 
         #endregion
