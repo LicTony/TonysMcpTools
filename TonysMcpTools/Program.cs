@@ -7,6 +7,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using TonysMcpTools.Utiles; // Para Assembly
 
@@ -55,9 +56,22 @@ namespace TonysMcpTools
             GlobalConfig.TokenDeAcceso = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TokenJira, MCP_EntropiaByte);
             GlobalConfig.JiraBaseUrl = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_JiraBaseUrl, MCP_EntropiaByte);
 
-            Log.Information("MCP Server is starting... Version: {Version}", TonysMcpToolsVersion.GetCurrentTonysMcpToolsVersion()); 
-            Log.Information("Jira Usuario: {UsuarioJira} URL: {JiraBaseUrl}", GlobalConfig.UsuarioJira, GlobalConfig.JiraBaseUrl);            
+
+            string ENCRYPT_MCP_TEMPOTOKEN = Util.GetStringNotNull("MCP_TempoToken", "");
+            string ENCRYPT_MCP_TEMPOACCOUNTID = Util.GetStringNotNull("MCP_TempoAccountId", "");
+            string ENCRYPT_MCP_MCP_JIRABASEURL = Util.GetStringNotNull("MCP_JiraBaseUrl", "");
+
+            GlobalConfig.TempoToken = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TEMPOTOKEN, MCP_EntropiaByte);
+            GlobalConfig.TempoAccountId = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TEMPOACCOUNTID, MCP_EntropiaByte);
+            GlobalConfig.TempoBaseUrl = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_MCP_JIRABASEURL, MCP_EntropiaByte);
+
+            Log.Information("MCP Server is starting... Version: {Version}", TonysMcpToolsVersion.GetCurrentTonysMcpToolsVersion());
+            const string textoLogJiraTempo = "Jira Usuario: {UsuarioJira} URL: {JiraBaseUrl} Tempo TempoAccountId: {TempoAccountId} URL: {TempoBaseUrl}";
+            Log.Information(textoLogJiraTempo
+                , GlobalConfig.UsuarioJira, GlobalConfig.JiraBaseUrl
+                , GlobalConfig.TempoAccountId, GlobalConfig.TempoBaseUrl);
             
+
             try
             {
                 Log.Information("Starting host...");

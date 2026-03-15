@@ -15,7 +15,7 @@ namespace TonysMcpTools
         [McpServerTool, Description("Retorna la version actual de TonysMcpTools.")]
         public static string GetCurrentTonysMcpToolsVersion()
         {
-            return $"1.0.2 2025-02-04 15:00";
+            return $"1.0.3 2026-03-15 08:00";
         }
     }
 }

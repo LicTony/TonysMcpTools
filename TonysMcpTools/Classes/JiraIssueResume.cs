@@ -163,4 +163,20 @@ namespace TonysMcpTools.Classes
         public JiraUserResume? Author { get; set; }
     }
 
+
+    public class JiraUsuario
+    {
+        [JsonPropertyName("accountId")]
+        public string? AccountId { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string? DisplayName { get; set; }
+
+        [JsonPropertyName("emailAddress")]
+        public string? EmailAddress { get; set; }
+
+        [JsonPropertyName("active")]
+        public bool Active { get; set; }
+    }
+
 }

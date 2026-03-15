@@ -1,4 +1,4 @@
-﻿using ModelContextProtocol.Server;
+using ModelContextProtocol.Server;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -30,7 +30,7 @@ namespace TonysMcpTools
             "fechas de creación y actualización, descripción y comentarios. " +
             "Usar cuando se necesita una visión general rápida del issue sin sobrecargar el contexto con campos innecesarios. " +
             "Preferir este método sobre ObtenerDetalleIssueAsync cuando no se requieren campos personalizados.")]
-        public static async Task<string> ObtenerDetalleResumidoIssueAsync(
+        public static async Task<string> JiraObtenerDetalleResumidoIssueAsync(
             [Description("La clave del issue de Jira. Ejemplo: PROJ-123")] string issueKey)
         {
             string fields = "summary,status,issuetype,priority,assignee,created,updated,description,comment,attachment";
@@ -39,7 +39,7 @@ namespace TonysMcpTools
             try
             {
                 HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
-                string jsonRaw = await ProcesarRespuestaAsync(response, nameof(ObtenerDetalleResumidoIssueAsync));
+                string jsonRaw = await ProcesarRespuestaAsync(response, nameof(JiraObtenerDetalleResumidoIssueAsync));
 
                 JiraIssueResume? issue = JsonSerializer.Deserialize<JiraIssueResume>(jsonRaw, _jsonOptions);
 
@@ -94,7 +94,7 @@ namespace TonysMcpTools
             }
             catch (Exception ex)
             {
-                string mensajeError = $"Error en {nameof(ObtenerDetalleResumidoIssueAsync)}: {ex.Message}";
+                string mensajeError = $"Error en {nameof(JiraObtenerDetalleResumidoIssueAsync)}: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine(mensajeError);
                 return JsonSerializer.Serialize(new { error = mensajeError });
             }
@@ -117,14 +117,14 @@ namespace TonysMcpTools
             "que no está disponible en el resumen. " +
             "Advertencia: la respuesta puede ser muy extensa. Preferir ObtenerDetalleResumidoIssueAsync " +
             "si solo se necesitan los campos básicos.")]
-        public static async Task<string> ObtenerDetalleIssueAsync(
+        public static async Task<string> JiraObtenerDetalleIssueAsync(
             [Description("La clave del issue de Jira. Ejemplo: PROJ-123")] string issueKey)
         {
             string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/issue/{issueKey}";
 
             HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
 
-            return await ProcesarRespuestaAsync(response, nameof(ObtenerDetalleIssueAsync));
+            return await ProcesarRespuestaAsync(response, nameof(JiraObtenerDetalleIssueAsync));
         }
 
 
@@ -143,7 +143,7 @@ namespace TonysMcpTools
             "Usar cuando se necesita obtener múltiples issues según criterios de filtrado como proyecto, " +
             "estado, asignado, fechas, etiquetas u otros campos. " +
             "Ejemplos de JQL válido: 'assignee = currentUser()', 'created >= -7d AND project = PROJ'.")]
-        public static async Task<string> ObtenerIssueByJqlAsync(
+        public static async Task<string> JiraObtenerIssueByJqlAsync(
             [Description("Consulta JQL (ej: 'project = PROJ AND status = Open')")] string jqlQuery,
             [Description("Cantidad máxima de resultados(por defecto 5000)")] int maxResults = 5000)
         {
@@ -163,7 +163,7 @@ namespace TonysMcpTools
             // Este endpoint usa POST en lugar de GET para soportar queries largas
             HttpResponseMessage response = await _httpClient.PostAsync(apiUrl, content);
 
-            return await ProcesarRespuestaAsync(response, nameof(ObtenerIssueByJqlAsync));
+            return await ProcesarRespuestaAsync(response, nameof(JiraObtenerIssueByJqlAsync));
         }
 
 
@@ -180,7 +180,7 @@ namespace TonysMcpTools
             "Parámetro 'maxResults' limita la cantidad de registros retornados (por defecto 1000). " +
             "Usar cuando se necesita conocer las horas cargadas, quién trabajó en el issue " +
             "o analizar el tiempo invertido en una tarea.")]
-        public static async Task<string> ObtenerWorkLogsAsync(
+        public static async Task<string> JiraObtenerWorkLogsAsync(
             [Description("La clave del issue de Jira. Ejemplo: PROJ-123")] string issueKey,
             [Description("Cantidad máxima de work logs a retornar (por defecto 1000)")] int maxResults = 1000)
         {
@@ -188,8 +188,82 @@ namespace TonysMcpTools
 
             HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
 
-            return await ProcesarRespuestaAsync(response, nameof(ObtenerWorkLogsAsync));
+            return await ProcesarRespuestaAsync(response, nameof(JiraObtenerWorkLogsAsync));
         }
+
+
+
+        /// <summary>
+        /// Busca múltiples usuarios en Jira por nombre y retorna el mapeo nombre → accountId.
+        /// </summary>
+        [McpServerTool, Description(
+            "Busca múltiples usuarios en Jira por nombre y retorna un array con el mapeo de cada nombre a su accountId. " +
+            "Parámetro: 'nombres' es la lista de nombres parciales o completos a buscar (ej: ['Ascaravilli', 'AShokida']). " +
+            "Retorna por cada nombre: el texto buscado, accountId, nombre completo y email del mejor resultado encontrado. " +
+            "Usar como paso previo cuando se necesitan los accountIds de varios usuarios para " +
+            "consultar sus worklogs o timesheets en Tempo. " +
+            "Ejemplo: 'buscar usuarios Ascaravilli y AShokida'.")]
+        public static async Task<string> JiraBuscarUsuariosJiraAsync(
+            [Description("Lista de nombres de usuario a buscar. Ejemplo: [\"Ascaravilli\", \"AShokida\"]")]
+    List<string> nombres)
+        {
+            try
+            {
+                // Buscamos todos en paralelo, igual que ObtenerResumenSemanaUsuariosAsync
+                var tareas = nombres.Select(nombre => BuscarUnUsuario(nombre));
+                var resultados = await Task.WhenAll(tareas);
+
+                return JsonSerializer.Serialize(resultados, _jsonOptions);
+            }
+            catch (Exception ex)
+            {
+                string mensajeError = $"Error en {nameof(JiraBuscarUsuariosJiraAsync)}: {ex.Message}";
+                System.Diagnostics.Debug.WriteLine(mensajeError);
+                return JsonSerializer.Serialize(new { error = mensajeError });
+            }
+        }
+
+    //    [McpServerTool, Description(
+    //"Obtiene el resumen de horas registradas en la semana laboral actual (lunes a viernes) " +
+    //"para uno o varios usuarios de Tempo. " +
+    //"Parámetro: 'accountIds' es la lista de accountIds obtenida previamente con BuscarUsuariosJiraAsync. " +
+    //"Retorna por cada usuario: total de horas registradas, desglose por día e issues trabajados. " +
+    //"Usar siempre después de BuscarUsuariosJiraAsync cuando se necesitan las horas de varios usuarios. " +
+    //"Ejemplo: 'horas de Ascaravilli y AShokida esta semana'.")]
+    //    public static async Task<string> JiraObtenerResumenSemanaUsuariosAsync(
+    //[Description("Lista de accountIds de Jira obtenidos con BuscarUsuariosJiraAsync.")]
+    //List<string> accountIds)
+    //    {
+    //        // Mismo cálculo de fechas que en ObtenerResumenSemanaActualAsync
+    //        int diasDesdeElLunes = ((int)DateTime.Today.DayOfWeek + 6) % 7;
+    //        DateTime lunes = DateTime.Today.AddDays(-diasDesdeElLunes);
+    //        DateTime viernes = lunes.AddDays(4);
+
+    //        string fechaDesde = lunes.ToString(GlobalConfig.FormatoFechaTempo);
+    //        string fechaHasta = viernes.ToString(GlobalConfig.FormatoFechaTempo);
+
+    //        try
+    //        {
+    //            // Lanzamos todas las consultas en paralelo para no esperar una por una
+    //            var tareas = accountIds.Select(accountId => TempoObtenerWorklogsUsuario(accountId, fechaDesde, fechaHasta));
+    //            var resultadosPorUsuario = await Task.WhenAll(tareas);
+
+    //            var resultado = new
+    //            {
+    //                semana = new { desde = fechaDesde, hasta = fechaHasta },
+    //                usuarios = resultadosPorUsuario
+    //            };
+
+    //            return JsonSerializer.Serialize(resultado, _jsonOptions);
+    //        }
+    //        catch (Exception ex)
+    //        {
+    //            string mensajeError = $"Error en {nameof(JiraObtenerResumenSemanaUsuariosAsync)}: {ex.Message}";
+    //            System.Diagnostics.Debug.WriteLine(mensajeError);
+    //            return JsonSerializer.Serialize(new { error = mensajeError });
+    //        }
+    //    }
+
 
         #region MetodosPrivadosAuxiliares
 
@@ -291,7 +365,37 @@ namespace TonysMcpTools
             return $"{bytes / (1024.0 * 1024):F1} MB";
         }
 
+        // Método privado auxiliar: busca un usuario y retorna el mejor resultado
+        private static async Task<object> BuscarUnUsuario(string nombre)
+        {
+            string apiUrl = $"{GlobalConfig.JiraBaseUrl}/rest/api/3/user/search" +
+                            $"?query={Uri.EscapeDataString(nombre)}&maxResults=1";
 
+            HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
+            string jsonRaw = await ProcesarRespuestaAsync(response, nameof(BuscarUnUsuario));
+
+            var usuarios = JsonSerializer.Deserialize<List<JiraUsuario>>(jsonRaw, _jsonOptions);
+            var usuario = usuarios?.FirstOrDefault();
+
+            if (usuario is null)
+                return new
+                {
+                    nombreBuscado = nombre,
+                    encontrado = false,
+                    accountId = (string?)null,
+                    displayName = (string?)null,
+                    email = (string?)null
+                };
+
+            return new
+            {
+                nombreBuscado = nombre,
+                encontrado = true,
+                accountId = usuario.AccountId ?? "N/A",
+                displayName = usuario.DisplayName ?? "N/A",
+                email = usuario.EmailAddress ?? "N/A"
+            };
+        }
 
         #endregion
 
