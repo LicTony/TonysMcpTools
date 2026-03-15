@@ -223,46 +223,46 @@ namespace TonysMcpTools
             }
         }
 
-    //    [McpServerTool, Description(
-    //"Obtiene el resumen de horas registradas en la semana laboral actual (lunes a viernes) " +
-    //"para uno o varios usuarios de Tempo. " +
-    //"Parámetro: 'accountIds' es la lista de accountIds obtenida previamente con BuscarUsuariosJiraAsync. " +
-    //"Retorna por cada usuario: total de horas registradas, desglose por día e issues trabajados. " +
-    //"Usar siempre después de BuscarUsuariosJiraAsync cuando se necesitan las horas de varios usuarios. " +
-    //"Ejemplo: 'horas de Ascaravilli y AShokida esta semana'.")]
-    //    public static async Task<string> JiraObtenerResumenSemanaUsuariosAsync(
-    //[Description("Lista de accountIds de Jira obtenidos con BuscarUsuariosJiraAsync.")]
-    //List<string> accountIds)
-    //    {
-    //        // Mismo cálculo de fechas que en ObtenerResumenSemanaActualAsync
-    //        int diasDesdeElLunes = ((int)DateTime.Today.DayOfWeek + 6) % 7;
-    //        DateTime lunes = DateTime.Today.AddDays(-diasDesdeElLunes);
-    //        DateTime viernes = lunes.AddDays(4);
+        [McpServerTool, Description(
+    "Obtiene el resumen de horas registradas en la semana laboral actual (lunes a viernes) " +
+    "para uno o varios usuarios de Tempo. " +
+    "Parámetro: 'accountIds' es la lista de accountIds obtenida previamente con BuscarUsuariosJiraAsync. " +
+    "Retorna por cada usuario: total de horas registradas, desglose por día e issues trabajados. " +
+    "Usar siempre después de BuscarUsuariosJiraAsync cuando se necesitan las horas de varios usuarios. " +
+    "Ejemplo: 'horas de Ascaravilli y AShokida esta semana'.")]
+        public static async Task<string> JiraObtenerResumenSemanaUsuariosAsync(
+    [Description("Lista de accountIds de Jira obtenidos con BuscarUsuariosJiraAsync.")]
+    List<string> accountIds)
+        {
+            // Mismo cálculo de fechas que en ObtenerResumenSemanaActualAsync
+            int diasDesdeElLunes = ((int)DateTime.Today.DayOfWeek + 6) % 7;
+            DateTime lunes = DateTime.Today.AddDays(-diasDesdeElLunes);
+            DateTime viernes = lunes.AddDays(4);
 
-    //        string fechaDesde = lunes.ToString(GlobalConfig.FormatoFechaTempo);
-    //        string fechaHasta = viernes.ToString(GlobalConfig.FormatoFechaTempo);
+            string fechaDesde = lunes.ToString(GlobalConfig.FormatoFechaTempo);
+            string fechaHasta = viernes.ToString(GlobalConfig.FormatoFechaTempo);
 
-    //        try
-    //        {
-    //            // Lanzamos todas las consultas en paralelo para no esperar una por una
-    //            var tareas = accountIds.Select(accountId => TempoObtenerWorklogsUsuario(accountId, fechaDesde, fechaHasta));
-    //            var resultadosPorUsuario = await Task.WhenAll(tareas);
+            try
+            {
+                // Lanzamos todas las consultas en paralelo para no esperar una por una
+                var tareas = accountIds.Select(accountId => ApiTempoTools.ObtenerWorklogsUsuario(accountId, fechaDesde, fechaHasta));
+                var resultadosPorUsuario = await Task.WhenAll(tareas);
 
-    //            var resultado = new
-    //            {
-    //                semana = new { desde = fechaDesde, hasta = fechaHasta },
-    //                usuarios = resultadosPorUsuario
-    //            };
+                var resultado = new
+                {
+                    semana = new { desde = fechaDesde, hasta = fechaHasta },
+                    usuarios = resultadosPorUsuario
+                };
 
-    //            return JsonSerializer.Serialize(resultado, _jsonOptions);
-    //        }
-    //        catch (Exception ex)
-    //        {
-    //            string mensajeError = $"Error en {nameof(JiraObtenerResumenSemanaUsuariosAsync)}: {ex.Message}";
-    //            System.Diagnostics.Debug.WriteLine(mensajeError);
-    //            return JsonSerializer.Serialize(new { error = mensajeError });
-    //        }
-    //    }
+                return JsonSerializer.Serialize(resultado, _jsonOptions);
+            }
+            catch (Exception ex)
+            {
+                string mensajeError = $"Error en {nameof(JiraObtenerResumenSemanaUsuariosAsync)}: {ex.Message}";
+                System.Diagnostics.Debug.WriteLine(mensajeError);
+                return JsonSerializer.Serialize(new { error = mensajeError });
+            }
+        }
 
 
         #region MetodosPrivadosAuxiliares

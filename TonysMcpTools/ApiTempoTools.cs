@@ -126,6 +126,56 @@ namespace TonysMcpTools
             }
         }
 
+        /// <summary>
+        /// Testea la conexión a la API de Tempo.
+        /// </summary>
+        [McpServerTool, Description(
+            "Testea la conexión a la API de Tempo de forma rápida. " +
+            "Retorna éxito si la conexión funciona correctamente. " +
+            "Si falla, provee información de diagnóstico (usuario, url, snippet de la API key).")]
+        public static async Task<string> TempoTestearConexionAsync()
+        {
+            string accountId = GlobalConfig.TempoAccountId;
+            string token = GlobalConfig.TempoToken ?? string.Empty;
+            string apiUrl = $"{GlobalConfig.TempoBaseUrl}/worklogs/user/{accountId}?limit=1";
+
+            try
+            {
+                HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    return JsonSerializer.Serialize(new { mensaje = "Conexión a la API de Tempo exitosa.", url = apiUrl }, _jsonOptions);
+                }
+                
+                string errorBody = await response.Content.ReadAsStringAsync();
+                throw new Exception($"{(int)response.StatusCode} {response.ReasonPhrase}. Detalle: {errorBody}");
+            }
+            catch (Exception ex)
+            {
+                string tokenSnippet = "N/A";
+                if (!string.IsNullOrEmpty(token))
+                {
+                    if (token.Length >= 5)
+                        tokenSnippet = $"{token.Substring(0, 4)}...{token.Substring(token.Length - 1, 1)}";
+                    else
+                        tokenSnippet = new string('*', token.Length);
+                }
+
+                var result = new
+                {
+                    error = "Falla de conexión a la API de Tempo",
+                    mensaje = ex.Message,
+                    usuario = accountId,
+                    url = apiUrl,
+                    apiKey = tokenSnippet
+                };
+
+                System.Diagnostics.Debug.WriteLine($"Error en {nameof(TempoTestearConexionAsync)}: {ex.Message}");
+                return JsonSerializer.Serialize(result, _jsonOptions);
+            }
+        }
+
 
         #region MetodosPrivadosAuxiliares
 
@@ -284,6 +334,54 @@ namespace TonysMcpTools
                 DayOfWeek.Saturday => "Sábado",
                 DayOfWeek.Sunday => "Domingo",
                 _ => "N/A"
+            };
+        }
+
+
+        // Método privado auxiliar: encapsula la consulta y el procesamiento de un usuario
+        internal static async Task<object> ObtenerWorklogsUsuario(string accountId, string fechaDesde, string fechaHasta)
+        {
+            string apiUrl = $"{GlobalConfig.TempoBaseUrl}/worklogs/user/{accountId}" +
+                            $"?from={fechaDesde}&to={fechaHasta}&limit=1000";
+
+            HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
+            string jsonRaw = await ProcesarRespuestaAsync(response, nameof(ObtenerWorklogsUsuario));
+
+            var paged = JsonSerializer.Deserialize<TempoPagedResponse<TempoWorklog>>(jsonRaw, _jsonOptions);
+
+            if (paged is null || paged.Results.Count == 0)
+                return new
+                {
+                    accountId,
+                    mensaje = "Sin horas registradas en la semana actual."
+                };
+
+            var desglosePorDia = paged.Results
+                .GroupBy(w => w.StartDate ?? "N/A")
+                .OrderBy(g => g.Key)
+                .Select(g => new
+                {
+                    fecha             = g.Key,
+                    diaSemana         = ObtenerNombreDia(g.Key),
+                    horasRegistradas  = FormatearHoras(g.Sum(w => w.TimeSpentSeconds))
+                });
+
+            var desglosePorIssue = paged.Results
+                .GroupBy(w => w.Issue?.Key ?? "Sin issue")
+                .OrderByDescending(g => g.Sum(w => w.TimeSpentSeconds))
+                .Select(g => new
+                {
+                    issue            = g.Key,
+                    horasRegistradas = FormatearHoras(g.Sum(w => w.TimeSpentSeconds))
+                });
+
+            return new
+            {
+                accountId,
+                totalHoras           = FormatearHoras(paged.Results.Sum(w => w.TimeSpentSeconds)),
+                totalHorasFacturables = FormatearHoras(paged.Results.Sum(w => w.BillableSeconds)),
+                desglosePorDia,
+                desglosePorIssue
             };
         }
 

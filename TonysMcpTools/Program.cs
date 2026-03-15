@@ -56,17 +56,18 @@ namespace TonysMcpTools
             GlobalConfig.TokenDeAcceso = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TokenJira, MCP_EntropiaByte);
             GlobalConfig.JiraBaseUrl = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_JiraBaseUrl, MCP_EntropiaByte);
 
+                                                                   
+            string ENCRYPT_MCP_TempoToken = Util.GetStringNotNull("MCP_TempoToken", "");
+            string ENCRYPT_MCP_TempoAccountId = Util.GetStringNotNull("MCP_TempoAccountId", "");
+            string ENCRYPT_MCP_TempoBaseUrl = Util.GetStringNotNull("MCP_TempoBaseUrl", "");
 
-            string ENCRYPT_MCP_TEMPOTOKEN = Util.GetStringNotNull("MCP_TempoToken", "");
-            string ENCRYPT_MCP_TEMPOACCOUNTID = Util.GetStringNotNull("MCP_TempoAccountId", "");
-            string ENCRYPT_MCP_MCP_JIRABASEURL = Util.GetStringNotNull("MCP_JiraBaseUrl", "");
 
-            GlobalConfig.TempoToken = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TEMPOTOKEN, MCP_EntropiaByte);
-            GlobalConfig.TempoAccountId = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TEMPOACCOUNTID, MCP_EntropiaByte);
-            GlobalConfig.TempoBaseUrl = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_MCP_JIRABASEURL, MCP_EntropiaByte);
+            GlobalConfig.TempoToken = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TempoToken, MCP_EntropiaByte);
+            GlobalConfig.TempoAccountId = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TempoAccountId, MCP_EntropiaByte);
+            GlobalConfig.TempoBaseUrl = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_TempoBaseUrl, MCP_EntropiaByte);
 
             Log.Information("MCP Server is starting... Version: {Version}", TonysMcpToolsVersion.GetCurrentTonysMcpToolsVersion());
-            const string textoLogJiraTempo = "Jira Usuario: {UsuarioJira} URL: {JiraBaseUrl} Tempo TempoAccountId: {TempoAccountId} URL: {TempoBaseUrl}";
+            const string textoLogJiraTempo = "Jira Usuario: {UsuarioJira} Jira URL: {JiraBaseUrl} Tempo TempoAccountId: {TempoAccountId} Tempo URL: {TempoBaseUrl}";
             Log.Information(textoLogJiraTempo
                 , GlobalConfig.UsuarioJira, GlobalConfig.JiraBaseUrl
                 , GlobalConfig.TempoAccountId, GlobalConfig.TempoBaseUrl);
