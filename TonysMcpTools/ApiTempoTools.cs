@@ -54,7 +54,7 @@ namespace TonysMcpTools
                     worklogs = paged.Results.Select(w => new
                     {
                         id = w.TempoWorklogId,
-                        issue = w.Issue?.Key ?? "Sin issue",
+                        issue = ObtenerIssueLabel(w.Issue),
                         fecha = w.StartDate ?? "N/A",
                         horaInicio = w.StartTime ?? "N/A",
                         horasRegistradas = FormatearHoras(w.TimeSpentSeconds),
@@ -279,7 +279,7 @@ namespace TonysMcpTools
                 // --- Desglose por issue ---
                 // Agrupamos por issue para ver en qué se invirtió más tiempo
                 var desglosePorIssue = paged.Results
-                    .GroupBy(w => w.Issue?.Key ?? "Sin issue")
+                    .GroupBy(w => ObtenerIssueLabel(w.Issue))
                     .OrderByDescending(g => g.Sum(w => w.TimeSpentSeconds))
                     .Select(g => new
                     {
@@ -311,6 +311,16 @@ namespace TonysMcpTools
                 System.Diagnostics.Debug.WriteLine(mensajeError);
                 return JsonSerializer.Serialize(new { error = mensajeError });
             }
+        }
+
+        // La API v4 de Tempo no devuelve el campo "key" en el issue, solo "id" y "self".
+        // Este helper muestra la key si existe (ej: PROJ-123), o el ID entre corchetes como fallback.
+        private static string ObtenerIssueLabel(TempoIssue? issue)
+        {
+            if (issue is null) return "Sin issue";
+            if (!string.IsNullOrWhiteSpace(issue.Key)) return issue.Key;
+            if (issue.Id > 0) return $"[Issue#{issue.Id}]";
+            return "Sin issue";
         }
 
         // Convierte una fecha "yyyy-MM-dd" al nombre del día en español
@@ -367,7 +377,7 @@ namespace TonysMcpTools
                 });
 
             var desglosePorIssue = paged.Results
-                .GroupBy(w => w.Issue?.Key ?? "Sin issue")
+                .GroupBy(w => ObtenerIssueLabel(w.Issue))
                 .OrderByDescending(g => g.Sum(w => w.TimeSpentSeconds))
                 .Select(g => new
                 {

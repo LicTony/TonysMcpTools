@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -57,8 +57,13 @@ namespace TonysMcpTools.Classes
         public TempoAuthor? Author { get; set; }
     }
 
+    // La API v4 de Tempo devuelve solo "id" y "self" — NO devuelve "key"
+    // El campo Key queda para compatibilidad pero siempre llegará null desde v4
     public class TempoIssue
     {
+        [JsonPropertyName("self")]
+        public string? Self { get; set; }
+
         [JsonPropertyName("id")]
         public long Id { get; set; }
 
