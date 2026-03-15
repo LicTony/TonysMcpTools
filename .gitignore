@@ -424,3 +424,6 @@ logs/
 # Archivos temporales específicos del proyecto
 temp/
 tmp/
+
+#Proyectos de ejemplos para ver alguna funcionalidad
+__Ejemplo/*
