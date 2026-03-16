@@ -148,8 +148,13 @@ namespace TonysMcpTools
                     return JsonSerializer.Serialize(new { mensaje = "Conexión a la API de Tempo exitosa.", url = apiUrl }, _jsonOptions);
                 }
                 
-                string errorBody = await response.Content.ReadAsStringAsync();
-                throw new Exception($"{(int)response.StatusCode} {response.ReasonPhrase}. Detalle: {errorBody}");
+                string errorBody = await response.Content.ReadAsStringAsync();                
+                throw new HttpRequestException(
+                    $"{(int)response.StatusCode} {response.ReasonPhrase}. Detalle: {errorBody}",
+                    null,   // inner exception
+                    response.StatusCode);
+
+
             }
             catch (Exception ex)
             {
@@ -157,7 +162,7 @@ namespace TonysMcpTools
                 if (!string.IsNullOrEmpty(token))
                 {
                     if (token.Length >= 5)
-                        tokenSnippet = $"{token.Substring(0, 4)}...{token.Substring(token.Length - 1, 1)}";
+                        tokenSnippet = $"{token[..4]}...{token.Substring(token.Length - 1, 1)}";
                     else
                         tokenSnippet = new string('*', token.Length);
                 }
@@ -236,12 +241,45 @@ namespace TonysMcpTools
         public static async Task<string> TempoObtenerResumenSemanaActualAsync()
         {
             // --- Cálculo automático de lunes y viernes de la semana actual ---
-            // DayOfWeek: Sun=0, Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6
-            // El +6 % 7 rota el índice para que lunes=0, martes=1, ... domingo=6
             int diasDesdeElLunes = ((int)DateTime.Today.DayOfWeek + 6) % 7;
             DateTime lunes = DateTime.Today.AddDays(-diasDesdeElLunes);
             DateTime viernes = lunes.AddDays(4);
 
+            return await ProcesarResumenSemanaAsync(lunes, viernes);
+        }
+
+        /// <summary>
+        /// Genera un resumen de las horas registradas en la semana laboral de una fecha específica.
+        /// </summary>
+        [McpServerTool, Description(
+            "Genera un resumen de las horas registradas por el usuario en una semana específica. " +
+            "Requiere un parámetro: fechaInicio (cualquier día de la semana) y calculará automáticamente el lunes y viernes de esa semana. " +
+            "Retorna: rango de fechas de la semana, total de horas registradas, desglose por día " +
+            "y listado de issues trabajados con sus horas. " +
+            "Usar cuando el usuario pregunta '¿cuántas horas cargué la semana que empezó el X?' " +
+            "o 'resumen de la semana del Y'.")]
+        public static async Task<string> TempoObtenerResumenSemanaAsync(
+            [Description("Fecha dentro de la semana a consultar. Formato: YYYY-MM-DD. Ejemplo: 2025-03-01")] string fechaInicio)
+        {
+            if (!DateTime.TryParseExact(
+                    fechaInicio,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out DateTime fecha))
+            {
+                return JsonSerializer.Serialize(new { error = $"Formato de fecha inválido '{fechaInicio}'. Debe ser YYYY-MM-DD." }, _jsonOptions);
+            }
+
+            int diasDesdeElLunes = ((int)fecha.DayOfWeek + 6) % 7;
+            DateTime lunes = fecha.AddDays(-diasDesdeElLunes);
+            DateTime viernes = lunes.AddDays(4);
+
+            return await ProcesarResumenSemanaAsync(lunes, viernes);
+        }
+
+        private static async Task<string> ProcesarResumenSemanaAsync(DateTime lunes, DateTime viernes)
+        {
             string fechaDesde = lunes.ToString(GlobalConfig.FormatoFechaTempo);
             string fechaHasta = viernes.ToString(GlobalConfig.FormatoFechaTempo);
 
@@ -252,7 +290,7 @@ namespace TonysMcpTools
             try
             {
                 HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
-                string jsonRaw = await ProcesarRespuestaAsync(response, nameof(TempoObtenerResumenSemanaActualAsync));
+                string jsonRaw = await ProcesarRespuestaAsync(response, nameof(ProcesarResumenSemanaAsync));
 
                 var paged = JsonSerializer.Deserialize<TempoPagedResponse<TempoWorklog>>(jsonRaw, _jsonOptions);
 
@@ -260,11 +298,10 @@ namespace TonysMcpTools
                     return JsonSerializer.Serialize(new
                     {
                         semana = new { desde = fechaDesde, hasta = fechaHasta },
-                        mensaje = "No se registraron horas en la semana actual."
+                        mensaje = "No se registraron horas en la semana seleccionada."
                     }, _jsonOptions);
 
                 // --- Desglose por día ---
-                // Agrupamos los worklogs por fecha para ver cuánto se trabajó cada día
                 var desglosePorDia = paged.Results
                     .GroupBy(w => w.StartDate ?? "N/A")
                     .OrderBy(g => g.Key)
@@ -277,7 +314,6 @@ namespace TonysMcpTools
                     });
 
                 // --- Desglose por issue ---
-                // Agrupamos por issue para ver en qué se invirtió más tiempo
                 var desglosePorIssue = paged.Results
                     .GroupBy(w => ObtenerIssueLabel(w.Issue))
                     .OrderByDescending(g => g.Sum(w => w.TimeSpentSeconds))
@@ -307,7 +343,7 @@ namespace TonysMcpTools
             }
             catch (Exception ex)
             {
-                string mensajeError = $"Error en {nameof(TempoObtenerResumenSemanaActualAsync)}: {ex.Message}";
+                string mensajeError = $"Error en {nameof(ProcesarResumenSemanaAsync)}: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine(mensajeError);
                 return JsonSerializer.Serialize(new { error = mensajeError });
             }
