@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
@@ -71,8 +71,15 @@ namespace TonysMcpTools
             Log.Information(textoLogJiraTempo
                 , GlobalConfig.UsuarioJira, GlobalConfig.JiraBaseUrl
                 , GlobalConfig.TempoAccountId, GlobalConfig.TempoBaseUrl);
-            
 
+            string ENCRYPT_MCP_EmailBaseUrl = Util.GetStringNotNull("MCP_EmailBaseUrl", "");
+            string ENCRYPT_MCP_EmailApiKey = Util.GetStringNotNull("MCP_EmailApiKey", "");
+            string ENCRYPT_MCP_EmailFrom = Util.GetStringNotNull("MCP_EmailFrom", "");
+
+            GlobalConfig.EmailBaseUrl =  Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_EmailBaseUrl, MCP_EntropiaByte);
+            GlobalConfig.EmailApiKey = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_EmailApiKey, MCP_EntropiaByte);
+            GlobalConfig.EmailFrom = Utiles.DpapiHelper.DescifrarSeguro(ENCRYPT_MCP_EmailFrom, MCP_EntropiaByte);
+            
             try
             {
                 Log.Information("Starting host...");

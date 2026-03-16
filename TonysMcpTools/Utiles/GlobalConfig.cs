@@ -18,5 +18,9 @@ namespace TonysMcpTools.Utiles
         public static string TempoAccountId { get; set; } = string.Empty;
         public static string TempoBaseUrl { get; set; } = string.Empty;
 
+        public static string EmailBaseUrl { get; set; } = string.Empty;
+        public static string EmailApiKey { get; set; } = string.Empty;
+        public static string EmailFrom { get; set; } = string.Empty;        
+
     }
 }
